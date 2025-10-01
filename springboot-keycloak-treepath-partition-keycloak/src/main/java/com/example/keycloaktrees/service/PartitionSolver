@@ -1,0 +1,114 @@
+package com.example.keycloaktrees.service;
+
+import java.util.*;
+
+public class PartitionSolver {
+
+    // Results for both approaches
+    public record ExactResult(int minDifference, List<Integer> bucketA, List<Integer> bucketB) {}
+    public record DPResult(int minDifference, List<Integer> bucketA, List<Integer> bucketB) {}
+
+    /**Brute force exact partition (tries all combinations).
+     */
+    public static ExactResult exactPartition(List<Integer> weights) {
+        int n = weights.size();
+        int totalSum = weights.stream().mapToInt(Integer::intValue).sum();
+
+        int bestDifference = Integer.MAX_VALUE;
+        List<Integer> bestBucketA = new ArrayList<>();
+        List<Integer> bestBucketB = new ArrayList<>();
+
+        // Number of ways to split = 2^n
+        int totalWays = 1 << n;
+
+        if (n > 30) { //only for smaller number of weights
+            throw new IllegalArgumentException("Too many weights for exact brute force.");
+        }
+
+        // Try every possible distribution of items
+        for (int mask = 0; mask < totalWays; mask++) {
+            List<Integer> bucketA = new ArrayList<>();
+            List<Integer> bucketB = new ArrayList<>();
+            int sumA = 0;
+
+            for (int i = 0; i < n; i++) {
+                if ((mask & (1 << i)) != 0) {
+                    bucketA.add(weights.get(i));
+                    sumA += weights.get(i);
+                } else {
+                    bucketB.add(weights.get(i));
+                }
+            }
+
+            int sumB = totalSum - sumA;
+            int diff = Math.abs(sumA - sumB);
+
+            if (diff < bestDifference) {
+                bestDifference = diff;
+                bestBucketA = new ArrayList<>(bucketA);
+                bestBucketB = new ArrayList<>(bucketB);
+            }
+
+            if (bestDifference == 0) break; // perfect split found
+        }
+
+        return new ExactResult(bestDifference, bestBucketA, bestBucketB);
+    }
+
+    /**
+     * Dynamic Programming partition (more efficient).
+     */
+    public static DPResult dpPartition(List<Integer> weights) {
+        int n = weights.size();
+        int totalSum = weights.stream().mapToInt(Integer::intValue).sum();
+        int half = totalSum / 2;
+
+        // reachable[i][j] = can we reach sum j using first i items?
+        boolean[][] reachable = new boolean[n + 1][half + 1];
+        reachable[0][0] = true;
+
+        for (int i = 0; i < n; i++) {
+            int w = weights.get(i);
+            for (int j = 0; j <= half; j++) {
+                if (reachable[i][j]) {
+                    reachable[i + 1][j] = true; // skip current item
+                    if (j + w <= half) {
+                        reachable[i + 1][j + w] = true; // include current item
+                    }
+                }
+            }
+        }
+
+        // Find best possible sum close to half
+        int bestSum = 0;
+        for (int s = half; s >= 0; s--) {
+            if (reachable[n][s]) {
+                bestSum = s;
+                break;
+            }
+        }
+
+        int sumA = bestSum;
+        int sumB = totalSum - bestSum;
+        int minDiff = Math.abs(sumA - sumB);
+
+        // Rebuild which items went into bucket A and bucket B
+        List<Integer> bucketA = new ArrayList<>();
+        List<Integer> bucketB = new ArrayList<>();
+        int currentSum = bestSum;
+
+        for (int i = n; i > 0; i--) {
+            int w = weights.get(i - 1);
+            if (currentSum - w >= 0 && reachable[i - 1][currentSum - w]) {
+                bucketA.add(w);
+                currentSum -= w;
+            } else {
+                bucketB.add(w);
+            }
+        }
+
+        Collections.reverse(bucketA);
+
+        return new DPResult(minDiff, bucketA, bucketB);
+    }
+}
