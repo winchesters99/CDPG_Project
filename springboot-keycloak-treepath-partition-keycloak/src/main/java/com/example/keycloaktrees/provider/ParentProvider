@@ -1,0 +1,5 @@
+package com.example.keycloaktrees.provider;
+
+public interface ParentProvider {
+    Integer getParent(Integer nodeId);
+}
