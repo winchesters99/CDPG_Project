@@ -1,0 +1,17 @@
+package com.example.keycloaktrees.dto;
+
+import java.util.List;
+
+public class PartitionResponse {
+    private int minDifference;
+    private List<Integer> bucketA;
+    private List<Integer> bucketB;
+    public PartitionResponse(int d, List<Integer> a, List<Integer> b) {
+        this.minDifference = d;
+        this.bucketA = a;
+        this.bucketB = b;
+    }
+    public int getMinDifference() { return minDifference; }
+    public List<Integer> getBucketA() { return bucketA; }
+    public List<Integer> getBucketB() { return bucketB; }
+}
