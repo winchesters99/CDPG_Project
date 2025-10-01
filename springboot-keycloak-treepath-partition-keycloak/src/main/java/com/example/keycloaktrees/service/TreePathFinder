@@ -1,0 +1,58 @@
+package com.example.keycloaktrees.service;
+
+import java.util.*;
+import java.util.function.Function;
+
+public class TreePathFinder {
+    public static List<Integer> findPath(int start, int end, java.util.function.Function<Integer,Integer> getParent) {
+        // If both nodes are the same
+        if (start == end) {
+            return Collections.singletonList(start);
+        }
+
+        // here, we are collecting all ancestors of start node
+        Set<Integer> ancestorsOfStart = new HashSet<>();
+        Integer node = start;
+        while (node != null) {
+            ancestorsOfStart.add(node);
+            node = getParent.apply(node);
+        }
+
+        // here we are Going up from end node until we hit a common ancestor
+        List<Integer> pathFromEnd = new ArrayList<>();
+        node = end;
+        Integer commonAncestor = null;
+        while (node != null) {
+            pathFromEnd.add(node);
+            if (ancestorsOfStart.contains(node)) {
+                commonAncestor = node;
+                break;
+            }
+            node = getParent.apply(node);
+        }
+
+        // If no common ancestor found, no path exists
+        if (commonAncestor == null) {
+            return Collections.emptyList();
+        }
+
+        // Build path: start -> ... -> common ancestor
+        List<Integer> path = new ArrayList<>();
+        node = start;
+        while (node != null) {
+            path.add(node);
+            if (node.equals(commonAncestor)) break;
+            node = getParent.apply(node);
+        }
+
+        // Add path from common ancestor -> end
+        Collections.reverse(pathFromEnd);
+        for (Integer p : pathFromEnd) {
+            if (!p.equals(commonAncestor)) {
+                path.add(p);
+            }
+        }
+
+        return path;
+    }
+}
