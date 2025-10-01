@@ -1,0 +1,100 @@
+package com.example.keycloaktrees.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.jwt.Jwt;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Security configuration for Keycloak (OIDC/JWT).
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+public class SecurityConfig {
+
+    @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
+    private String jwkSetUri;
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        JwtAuthenticationConverter jwtAuthConverter = new JwtAuthenticationConverter();
+        jwtAuthConverter.setJwtGrantedAuthoritiesConverter(new KeycloakRoleConverter());
+
+        http.csrf().disable().authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("admin")
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().permitAll()
+                )
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter))
+                );
+
+        return http.build();
+    }
+
+    public static class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
+
+        private final JwtGrantedAuthoritiesConverter fallbackConverter = new JwtGrantedAuthoritiesConverter();
+
+        @Override
+        public Collection<GrantedAuthority> convert(Jwt jwt) {
+            Set<String> roles = new HashSet<>();
+
+            Object realmAccess = jwt.getClaim("realm_access");
+            if (realmAccess instanceof Map) {
+                Object rolesObj = ((Map<?, ?>) realmAccess).get("roles");
+                if (rolesObj instanceof Collection) {
+                    for (Object r : (Collection<?>) rolesObj) {
+                        if (r != null) roles.add(r.toString());
+                    }
+                }
+            }
+
+            Object resourceAccess = jwt.getClaim("resource_access");
+            if (resourceAccess instanceof Map) {
+                Map<?, ?> resourceMap = (Map<?, ?>) resourceAccess;
+                for (Map.Entry<?, ?> e : resourceMap.entrySet()) {
+                    Object clientVal = e.getValue();
+                    if (clientVal instanceof Map) {
+                        Object clientRoles = ((Map<?, ?>) clientVal).get("roles");
+                        if (clientRoles instanceof Collection) {
+                            for (Object r : (Collection<?>) clientRoles) {
+                                if (r != null) roles.add(r.toString());
+                            }
+                        }
+                    }
+                }
+            }
+
+            Set<GrantedAuthority> authorities = roles.stream()
+                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                    .collect(Collectors.toSet());
+
+            Collection<GrantedAuthority> fallback = fallbackConverter.convert(jwt);
+            if (fallback != null) authorities.addAll(fallback);
+
+            return authorities;
+        }
+    }
+}
