@@ -1,0 +1,39 @@
+package com.example.keycloaktrees.controller;
+
+import com.example.keycloaktrees.dto.*;
+import com.example.keycloaktrees.provider.ParentProvider;
+import com.example.keycloaktrees.service.PartitionSolver;
+import com.example.keycloaktrees.service.TreePathFinder;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api")
+public class TreeController {
+
+    private final ParentProvider parentProvider;
+
+    public TreeController(ParentProvider parentProvider) {
+        this.parentProvider = parentProvider;
+    }
+
+    @PostMapping("/path")
+    public ResponseEntity<PathResponse> findPath(@RequestBody PathRequest req) {
+        List<Integer> path = TreePathFinder.findPath(req.getSrc(), req.getDest(), parentProvider::getParent);
+        return ResponseEntity.ok(new PathResponse(path));
+    }
+
+    @PostMapping("/partition/exact")
+    public ResponseEntity<PartitionResponse> partitionExact(@RequestBody PartitionRequest req) {
+        var res = PartitionSolver.exactPartition(req.getWeights());
+        return ResponseEntity.ok(new PartitionResponse(res.minDifference(), res.bucketA(), res.bucketB()));
+    }
+
+    @PostMapping("/partition/dp")
+    public ResponseEntity<PartitionResponse> partitionDp(@RequestBody PartitionRequest req) {
+        var res = PartitionSolver.dpPartition(req.getWeights());
+        return ResponseEntity.ok(new PartitionResponse(res.minDifference(), res.bucketA(), res.bucketB()));
+    }
+}
