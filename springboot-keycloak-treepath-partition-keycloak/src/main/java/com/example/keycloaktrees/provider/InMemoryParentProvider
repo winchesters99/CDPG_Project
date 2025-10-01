@@ -1,0 +1,24 @@
+package com.example.keycloaktrees.provider;
+
+import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Component
+public class InMemoryParentProvider implements ParentProvider {
+    private final Map<Integer,Integer> parent = new HashMap<>();
+
+    public InMemoryParentProvider() {
+        addParent(2,1);
+        addParent(3,1);
+        addParent(4,2);
+        addParent(5,2);
+        addParent(6,3);
+    }
+
+    public void addParent(int child, int p){ parent.put(child,p); }
+
+    @Override
+    public Integer getParent(Integer nodeId){ return parent.get(nodeId); }
+}
