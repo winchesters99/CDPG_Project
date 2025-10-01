@@ -1,0 +1,9 @@
+package com.example.keycloaktrees.dto;
+
+import java.util.List;
+
+public class PartitionRequest {
+    private List<Integer> weights;
+    public List<Integer> getWeights() { return weights; }
+    public void setWeights(List<Integer> weights) { this.weights = weights; }
+}
